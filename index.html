@@ -1,0 +1,268 @@
+<title>Affirm.js Arcade</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single checkout-receipt "card" that the player works through; score reads like an order total */
+:root{
+  --bg:#EEF1F8; --paper:#FFFFFF; --ink:#151C33; --muted:#5B6380; --line:#D6DBEA;
+  --accent:#3A49D6; --accent-soft:#E3E6FB; --good:#1C8A5A; --good-soft:#DDF3E8; --bad:#C2413A; --bad-soft:#FBE3E1;
+  --code-bg:#F2F4FA;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1324; --paper:#181E36; --ink:#E9ECF7; --muted:#9AA2C2; --line:#2B3355;
+  --accent:#8C97FF; --accent-soft:#262E5C; --good:#4CCB8E; --good-soft:#163A2B; --bad:#FF7F77; --bad-soft:#3E1F23;
+  --code-bg:#11162B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1324; --paper:#181E36; --ink:#E9ECF7; --muted:#9AA2C2; --line:#2B3355;
+  --accent:#8C97FF; --accent-soft:#262E5C; --good:#4CCB8E; --good-soft:#163A2B; --bad:#FF7F77; --bad-soft:#3E1F23;
+  --code-bg:#11162B; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2{font-family:var(--f-display);text-wrap:balance;margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--code-bg);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:800;font-size:1.1rem;letter-spacing:-.01em}
+.brand span{color:var(--accent)}
+.stats{display:flex;gap:14px;font-family:var(--f-mono);font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink);font-weight:600}
+.lives{letter-spacing:2px;color:var(--bad)}
+
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px 20px;position:relative;display:flex;flex-direction:column;gap:16px}
+.card::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:8px;
+  background:radial-gradient(circle at 6px 0,transparent 5px,var(--paper) 5.5px) 0 0/12px 8px repeat-x}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);display:flex;justify-content:space-between;gap:8px}
+.q{font-family:var(--f-display);font-weight:500;font-size:1.35rem;line-height:1.25;letter-spacing:-.01em}
+.snippet{background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;font-family:var(--f-mono);font-size:.8rem;line-height:1.55;white-space:pre;margin:0}
+
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{all:unset;cursor:pointer;display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-size:.95rem;transition:border-color .15s,background .15s}
+.opt:hover:not([disabled]){border-color:var(--accent)}
+.opt:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.opt .k{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);border:1px solid var(--line);border-radius:5px;min-width:22px;text-align:center;padding:1px 0;flex:none;margin-top:2px}
+.opt span:last-child{min-width:0}
+.opt.right{border-color:var(--good);background:var(--good-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt[disabled]{cursor:default}
+
+.feedback{border-top:1px dashed var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.verdict{font-family:var(--f-display);font-weight:800;font-size:1.05rem}
+.verdict.good{color:var(--good)} .verdict.bad{color:var(--bad)}
+.say{background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:.9rem}
+.say b{font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);display:block;margin-bottom:2px}
+
+.btn{all:unset;cursor:pointer;background:var(--accent);color:var(--paper);font-weight:600;padding:12px 18px;border-radius:10px;text-align:center}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .btn{flex:1 1 160px}
+
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.lvl{border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.82rem;color:var(--muted)}
+.lvl strong{display:block;font-family:var(--f-display);color:var(--ink);font-size:.95rem}
+@media (max-width:420px){.levels{grid-template-columns:1fr}}
+
+.receipt{font-family:var(--f-mono);font-size:.85rem;display:flex;flex-direction:column;gap:6px;font-variant-numeric:tabular-nums}
+.receipt div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dotted var(--line);padding-bottom:4px}
+.receipt .total{font-weight:600;font-size:1rem;border-bottom:none;color:var(--accent)}
+.rank{font-family:var(--f-display);font-weight:800;font-size:2rem;letter-spacing:-.02em}
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.015)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}.bar i,.opt{transition:none}}
+.muted{color:var(--muted);font-size:.9rem;margin:0}
+</style>
+
+<div class="wrap">
+  <div class="hud">
+    <div class="brand">Affirm.js <span>Arcade</span></div>
+    <div class="stats" id="stats" aria-live="polite"></div>
+  </div>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <main class="card" id="card"></main>
+</div>
+
+<script>
+const LEVELS = ["Setup","Messaging","Checkout","No-JS & Direct API","Troubleshoot","Best Practices"];
+const BLURBS = ["Load the script","Show $/mo","Open the modal","Server-side path","Fix what breaks","Know when to use what"];
+const LIVES = 4;
+const QS = [
+ {l:0,q:"Where does the Affirm.js embed code belong?",o:["In the <head> of your global page template","At the bottom of the cart page only","Inside the checkout button's onclick","In your server code"],a:0,
+  e:"Put it once in the global template so the <code>affirm</code> object exists on every page.",s:"One script, in the head, on every page. That's what creates the affirm object."},
+ {l:0,q:"Which key goes into <code>_affirm_config</code>?",o:["Your private API key","Your public API key","The shopper's email","A checkout token"],a:1,
+  e:"The <code>public_api_key</code> identifies the site to Affirm. Private keys stay on the server.",s:"The browser only ever gets the public key."},
+ {l:0,q:"You're done testing. What changes before going live?",snip:'script: "https://cdn1-sandbox.affirm.com/js/v2/affirm.js"',o:["Nothing, sandbox works in production","Switch the script to cdn1.affirm.com and use the live public key","Delete the script tag","Add a second script tag for production"],a:1,
+  e:"Sandbox URL plus sandbox key for testing; production URL plus live key for real orders.",s:"Two swaps to go live: the script URL and the key."},
+ {l:0,q:"Your code runs before Affirm.js finishes loading. What do you wrap it in?",o:["setTimeout(fn, 5000)","affirm.ui.ready(fn)","window.onAffirm(fn)","affirm.checkout.open(fn)"],a:1,
+  e:"<code>affirm.ui.ready()</code> runs your callback once the library has loaded.",s:"Wait for ready, then call anything."},
+ {l:0,q:"You leave out <code>locale</code> and <code>country_code</code>. What does Affirm assume?",o:["en_CA and CAN","Whatever the shopper's browser says","en_US and USA","It throws an error"],a:2,
+  e:"Defaults are en_US and USA. Affirm doesn't read the shopper's locale on its own.",s:"Canada or French? You have to say so in the config."},
+
+ {l:1,q:"A product costs $250.00. What goes in <code>data-amount</code>?",o:["250","250.00","25000","$250"],a:2,
+  e:"Amounts are in cents: $250.00 is 25000.",s:"Cents, always. Multiply by 100."},
+ {l:1,q:"Which class shows the \"As low as $X/mo\" message?",o:["affirm-promo","affirm-as-low-as","affirm-checkout","affirm-site-modal"],a:1,
+  e:"<code>affirm-as-low-as</code> renders monthly payment messaging. <code>affirm-site-modal</code> is the \"Learn more\" link.",s:"ALA is the price line; site modal is the learn-more link."},
+ {l:1,q:"A shopper picks a pricier variant. The message still shows the old price. Fix?",o:["Reload the whole page","Update data-amount, then call affirm.ui.refresh()","Call affirm.checkout.open()","Nothing, Affirm updates it on its own"],a:1,
+  e:"Change the attribute, then <code>affirm.ui.refresh()</code> re-renders the messaging.",s:"New price? Update the tag and refresh."},
+ {l:1,q:"Why bother with <code>data-page-type</code>?",o:["It sets the font","It lets messaging be tuned per page later without new dev work","It's required for checkout","It picks the currency"],a:1,
+  e:"It tells Affirm where the tag lives (product, cart, homepage, banner) so messaging can change later without code.",s:"Tag the page type once, tweak messaging forever."},
+ {l:1,q:"How do you add prequalification to product page messaging?",o:["A separate prequal SDK","A server-side API call","Nothing extra, As Low As placements support it","A special data-prequal attribute"],a:2,
+  e:"ALA placements open prequal modals when clicked, with no separate integration.",s:"Prequal comes free with ALA."},
+
+ {l:2,q:"Put these in order to launch checkout.",o:["affirm.checkout.open() then affirm.checkout(obj)","affirm.checkout(obj) then affirm.checkout.open()","affirm.ui.refresh() then affirm.checkout(obj)","Only affirm.checkout.open(obj)"],a:1,
+  e:"First hand over the order with <code>affirm.checkout()</code>, then open it.",s:"Load the cart, then open the door."},
+ {l:2,q:"You want checkout in a pop-up on your site, not a redirect. What do you add?",snip:'"metadata": { "mode": ??? }',o:['"popup"','"modal"','"lightbox"','"inline"'],a:1,
+  e:'Set <code>"mode": "modal"</code>. Leave it out and you get the default redirect flow.',s:"Modal keeps shoppers on your site; redirect sends them to Affirm."},
+ {l:2,q:"In modal mode, which callback fires when the loan is confirmed?",o:["onOpen","onFail","onSuccess","onValidationError"],a:2,
+  e:"<code>onSuccess</code> gives you the checkout ID that your server uses to authorize the loan.",s:"onSuccess hands you the ID, your server finishes the job."},
+ {l:2,q:"A shopper closes the modal or gets declined. Which callback runs?",o:["onFail","onSuccess","onOpen","Nothing runs"],a:0,
+  e:"<code>onFail</code> covers exits, cancels and declines.",s:"onFail means: show them another way to pay."},
+ {l:2,q:"Your server already called the Direct Checkout API and got a <code>checkout_id</code>. How does the browser use it?",o:["Pass it as checkoutAri with mode: modal, then open()","Put it in data-amount","Send it to affirm.ui.refresh()","Store it in _affirm_config"],a:0,
+  e:"Server creates the checkout; the browser opens it by passing the ID as <code>checkoutAri</code>.",s:"Server builds it, browser opens it."},
+ {l:2,q:"Modal checkout feels broken for one shopper only. Likely culprit?",o:["Their cart is too small","Third-party cookies are blocked in their browser","They're on mobile","The page has two ALA tags"],a:1,
+  e:"Blocking third-party cookies degrades the modal experience.",s:"Weird modal on one browser? Ask about cookie settings."},
+
+ {l:3,q:"In plain words, what is the Direct Checkout API?",o:["A browser script that draws the $/mo message","Your server sends the order to Affirm and gets back a checkout_id and a redirect_url","An API that refunds loans","A Shopify-only plugin"],a:1,
+  e:"Your server POSTs the checkout object to <code>/api/v2/checkout/direct</code>. Affirm replies with a <code>checkout_id</code> and a <code>redirect_url</code>.",s:"Direct API means the server starts checkout, not the browser."},
+ {l:3,q:"A merchant says their site blocks third-party JavaScript. How can they still launch Affirm checkout?",o:["They can't use Affirm at all","Server calls the Direct Checkout API, then sends the shopper to the redirect_url","Paste affirm.js into the page as text","Use modal mode with no script"],a:1,
+  e:"Redirect checkout doesn't need Affirm.js in the browser. The server creates the checkout and redirects the shopper to Affirm.",s:"No JS? Go server-side and use redirect, not modal."},
+ {l:3,q:"With redirect checkout and no Affirm.js, how does the merchant learn the shopper finished?",o:["An onSuccess callback in the browser","Affirm sends a checkout_token to their user_confirmation_url","They poll the dashboard","The shopper emails them"],a:1,
+  e:"Affirm sends the shopper back to <code>user_confirmation_url</code> with a <code>checkout_token</code>; the server then authorizes it.",s:"Redirect mode: the token comes back on your confirmation URL."},
+ {l:3,q:"Same no-JS merchant wants the pop-up modal checkout. Possible?",o:["Yes, the Direct API opens the modal by itself","No, the modal is opened by affirm.checkout.open(), which lives in Affirm.js","Yes, with an iframe to affirm.com","Only on mobile"],a:1,
+  e:"Modal needs Affirm.js in the browser. Without it, redirect is the path. Promo messaging also needs Affirm.js, so ask if they can allowlist Affirm's domains.",s:"Modal and promo messaging need the script. Redirect doesn't."},
+
+ {l:4,q:"\"The As Low As message breaks onto two lines.\" Most likely cause?",o:["Affirm's servers are down","The container is too narrow or the theme's CSS squeezes it","data-page-type is wrong","The public key expired"],a:1,
+  e:"Wrapping is usually layout: a narrow column, a flex parent, or a big font. Inspect the element in DevTools, then give it more width or try <code>white-space: nowrap</code> on <code>.affirm-as-low-as</code> if it fits.",s:"Two lines is a CSS question. Open DevTools and check the container width."},
+ {l:4,q:"\"The message loads slowly and pops in late.\" Best first fixes?",o:["Load the script on every page separately","Load the snippet once in the global head, remove duplicate copies, and reserve space for the message","Call affirm.ui.refresh() in a loop","Switch to the sandbox script"],a:1,
+  e:"Load the async snippet once in the head. Remove duplicates, avoid routing it through a slow tag manager, and give the tag a min-height so the page doesn't jump.",s:"One script, early in the head, and save a spot for the message."},
+ {l:4,q:"The console says <code>affirm is not defined</code>. What happened?",o:["The shopper's cart is empty","Your code ran before the snippet, or the snippet is missing","data-amount is in dollars","Prequal is turned off"],a:1,
+  e:"The <code>affirm</code> object comes from the snippet. Make sure it's on the page, comes first, and wrap calls in <code>affirm.ui.ready()</code>.",s:"Undefined affirm means the snippet didn't run first."},
+ {l:4,q:"Messaging shows on a $500 item but not on a $40 one. Why?",o:["A JavaScript bug","The amount is below the merchant's minimum or cart floor","The $40 page needs a second script","Affirm hides cheap items on weekends"],a:1,
+  e:"If the price is under the minimum or cart floor set for the merchant, no message shows. Check the purchase limits.",s:"Missing on cheap items? Check the minimum amount."},
+ {l:4,q:"Nothing renders. The Network tab shows affirm.js blocked by Content-Security-Policy. Fix?",o:["Add Affirm's domains to the site's CSP allowlist","Move the script to the footer","Use a private API key","Call affirm.checkout.open()"],a:0,
+  e:"A strict CSP blocks the script from loading. The merchant's dev team adds Affirm's script and API domains to the allowlist.",s:"Blocked by CSP means the site's security rules need to allow Affirm."},
+ {l:4,q:"Live site, sandbox key, production script. What breaks?",snip:'public_api_key: "SANDBOX_KEY",\nscript: "https://cdn1.affirm.com/js/v2/affirm.js"',o:["Nothing, keys work anywhere","The key and environment don't match, so messaging and checkout fail","Only the modal breaks","Only the logo turns black"],a:1,
+  e:"Sandbox key goes with the sandbox script; live key goes with the production script. Mixing them fails.",s:"Key and script must come from the same environment."},
+ {l:4,q:"Fix the bug:",snip:'<p class="affirm-as-low-as"\n   data-page-type="product"\n   data-amount="249.99"></p>',o:["Change the class to affirm-promo","Use cents: data-amount=\"24999\"","Remove data-page-type","Add a second <p> tag"],a:1,
+  e:"Amounts are in cents. 249.99 is read wrong; use 24999.",s:"If the monthly price looks off, check for dollars instead of cents."},
+ {l:4,q:"Works for everyone except one shopper who sees no message at all. First question to ask?",o:["Do you have an ad blocker or privacy extension on?","What's your shoe size?","Did you clear the merchant's database?","Are you using the sandbox?"],a:0,
+  e:"Ad blockers and privacy extensions often block third-party scripts. Try a private window with extensions off.",s:"One person only? Try incognito with extensions off."},
+
+ // ── Level 0 additions: Shopify CA setup (from CA KB) ──
+ {l:0,q:"How many Affirm accounts do you create for a typical Canadian Shopify merchant?",o:["1 — one account for everything","2 — production and sandbox","3 — production, backend test, and frontend test","4 — one per region"],a:2,
+  e:"You stand up three accounts: CA Production (live store), CA Backend Test (backend test store), and CA Frontend Test (front-end UX testing). Each account maps 1:1 to a Shopify store.",s:"Three accounts, three stores. Production, backend test, frontend test. One account per store."},
+ {l:0,q:"You're connecting a Shopify store to Affirm. Which API key type do you use for the connection?",o:["Sandbox public key","Sandbox private key","Live (production) public key","Live private key"],a:2,
+  e:"Shopify stores always connect using the live public API key. Test mode is enabled via Shopify's test flag (x_test=true), which internally routes transactions to the sandbox key pair.",s:"Connect with the live key. Sandbox doesn't get a separate connection — test mode is a flag."},
+ {l:0,q:"A CA merchant enters their routing number as '12345-678'. What does Affirm store?",o:["123456780","067812345","087612345","012345678"],a:1,
+  e:"Affirm transforms transit(5) + institution(3) → 0 + institution + transit. So 12345-678 → 0 + 678 + 12345 = 067812345.",s:"Enter transit-then-institution. Affirm adds the leading zero and flips to institution-then-transit automatically."},
+
+ // ── Level 5: Best Practices (AFJS vs Promos API — from TAM guide) ──
+ {l:5,q:"A new merchant can load third-party JavaScript and wants a supported, lower-maintenance integration. What's your default recommendation?",o:["Promos API","AFJS","Components API","Magic Number"],a:1,
+  e:"AFJS is the default for most merchants. It provides supported messaging and checkout with Affirm-managed rendering, updates, and observability — reducing custom implementation and maintenance.",s:"AFJS gives you checkout plus best-in-class messaging with Affirm managing the updates. That's the default."},
+ {l:5,q:"A merchant prohibits third-party JavaScript but still wants 'As low as' messaging. What do you recommend?",o:["Tell them they can't use Affirm","AFJS via a CDN they control","Promos API","Static messaging"],a:2,
+  e:"Promos API lets the merchant request Affirm messaging data and render it themselves — no AFJS dependency. They own the rendering, loading states, fallbacks, and maintenance.",s:"No third-party JS? That's Promos API. They own the rendering, we provide the data."},
+ {l:5,q:"How big is the AFJS bundle and how long is it cached by the CDN?",o:["Under 500 KB, 24 hours","Under 150 KB, 7 days","Under 50 KB, 30 days","200 KB, 1 hour"],a:1,
+  e:"AFJS is under 150 KB and cached for 7 days. It loads asynchronously so it doesn't block the page.",s:"Under 150 KB, 7-day cache, async load. Fast enough for almost any site."},
+ {l:5,q:"What is the expected end-to-end time to visible ALA messaging with AFJS?",o:["Under 5 seconds","Under 3 seconds","Under 1 second","Under 200 ms"],a:2,
+  e:"AFJS downloads and executes in under 400 ms; ALA messaging appears in under 1 second in the reference demo. These are reference targets — validate on the merchant's actual site.",s:"Script in under 400 ms, message visible in under 1 second. Always validate on their site."},
+ {l:5,q:"What is the Promos API CDN-edge response latency at P75?",o:["About 1,000 ms","About 500 ms","About 130 ms","About 20 ms"],a:2,
+  e:"The reference production measurement is approximately 130 ms at P75. P50 is ~20 ms, P95 ~320 ms, P99 ~650 ms. Geography, cache status, and request shape all affect real-world results.",s:"130 ms at P75 is the reference. Remind the merchant: geography and cache status change the picture."},
+ {l:5,q:"A merchant adds Promos API as a browser-side call. What CSP directive do they need to update?",o:["script-src","frame-src and script-src","connect-src only","No CSP changes needed"],a:2,
+  e:"Browser-side Promos API calls need the Promos API domain added to connect-src. Server-side calls require no merchant-page CSP update at all.",s:"Browser-side Promos API: add the domain to connect-src. Server-side: no CSP change needed."},
+ {l:5,q:"A merchant loves Promos API's control but has a small engineering team. What's the key risk to flag?",o:["Promos API is more expensive","The merchant owns rendering, loading states, fallbacks, and ongoing maintenance","Promos API doesn't support checkout","The API has strict rate limits"],a:1,
+  e:"With Promos API, the merchant owns the full stack: rendering, error states, fallbacks, observability, and maintenance. AFJS offloads all of that to Affirm.",s:"More control means more ownership. Make sure their team has the capacity to build and maintain it properly."},
+ {l:5,q:"A merchant asks about using Components, Magic Number, or the JAR offline calculator. What's your first step?",o:["Recommend whichever fits the use case","Send them the documentation links","Consult #ask-px-upfunnel-eng before recommending any of them","Build a proof of concept"],a:2,
+  e:"Components, Magic Number, and the JAR offline calculator are escalation-only options. Consult Upfunnel Engineering (#ask-px-upfunnel-eng) before recommending any — some are legacy or merchant-specific.",s:"Those are escalation paths, not standard recommendations. Loop in Upfunnel Engineering first."},
+ {l:5,q:"How do you pitch AFJS to a merchant who's on the fence?",o:['"It's the cheapest option"','"AFJS gives you a supported way to add checkout and is the only way to access best-in-class messaging like badging without building it yourself"','"It requires no integration work on your end"','"Our competitors don't support it"'],a:1,
+  e:"The pitch: AFJS is the supported path for checkout + best-in-class messaging (including badging). Affirm manages rendering, updates, and observability — reducing merchant engineering effort over time.",s:"AFJS gives you checkout and lets Affirm handle messaging updates. That's a lot of engineering work you're not doing yourself."}
+];
+const RANKS = [[95,"Checkout Legend"],[80,"Modal Master"],[60,"Promo Pro"],[35,"Script Scout"],[0,"Sandbox Rookie"]];
+
+const $ = id => document.getElementById(id);
+let st;
+function best(){try{return +localStorage.getItem("afjs-best")||0}catch(e){return 0}}
+function saveBest(v){try{if(v>best())localStorage.setItem("afjs-best",v)}catch(e){}}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+function stats(){
+  if(!st){$("stats").innerHTML=`<span>Best <b>${best()}</b></span>`;return}
+  const hearts="♥".repeat(st.lives)+"♡".repeat(LIVES-st.lives);
+  $("stats").innerHTML=`<span>Score <b>${st.score}</b></span><span>Streak <b>${st.streak}</b></span><span class="lives" aria-label="${st.lives} lives">${hearts}</span>`;
+  $("bar").style.width=(st.i/QS.length*100)+"%";
+}
+
+function intro(){
+  st=null; stats(); $("bar").style.width="0";
+  $("card").innerHTML=`
+    <div class="eyebrow"><span>${QS.length} questions</span><span>${LIVES} lives</span></div>
+    <h1 style="font-size:2rem;font-weight:800;letter-spacing:-.02em">Can you ship an Affirm integration?</h1>
+    <p class="muted">Rounds on the script, promo messaging, checkout, the no-JavaScript path, and fixing what breaks. Right answers build a streak multiplier. Every answer comes with a one-liner you can say to a merchant.</p>
+    <div class="levels">${LEVELS.map((n,i)=>`<div class="lvl"><strong>${n}</strong>${BLURBS[i]}</div>`).join("")}</div>
+    <button class="btn" id="go">Start round</button>`;
+  $("go").onclick=start; $("go").focus();
+}
+function start(){st={i:0,score:0,streak:0,lives:LIVES,right:0,lvl:LEVELS.map(()=>0)};ask()}
+
+function ask(){
+  const q=QS[st.i]; stats();
+  const opts=q.o.map((t,n)=>`<button class="opt" data-n="${n}" id="opt${n}"><span class="k">${"ABCD"[n]}</span><span>${esc(t)}</span></button>`).join("");
+  $("card").innerHTML=`
+    <div class="eyebrow"><span>Level ${q.l+1} · ${LEVELS[q.l]}</span><span>${st.i+1}/${QS.length}</span></div>
+    <h2 class="q">${q.q}</h2>
+    ${q.snip?`<pre class="snippet">${esc(q.snip)}</pre>`:""}
+    <div class="opts">${opts}</div>
+    <div id="fb"></div>`;
+  $("card").classList.remove("pop"); void $("card").offsetWidth; $("card").classList.add("pop");
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>answer(+b.dataset.n));
+}
+
+function answer(n){
+  const q=QS[st.i], ok=n===q.a;
+  document.querySelectorAll(".opt").forEach(b=>{b.disabled=true;const k=+b.dataset.n;if(k===q.a)b.classList.add("right");else if(k===n)b.classList.add("wrong")});
+  let pts=0;
+  if(ok){st.streak++;st.right++;st.lvl[q.l]++;pts=100*Math.min(st.streak,4);st.score+=pts}
+  else{st.streak=0;st.lives--}
+  stats();
+  const last=st.i===QS.length-1||st.lives===0;
+  $("fb").innerHTML=`<div class="feedback">
+    <div class="verdict ${ok?"good":"bad"}">${ok?`Correct · +${pts}${st.streak>1?` (×${Math.min(st.streak,4)} streak)`:""}`:"Not quite"}</div>
+    <p class="muted" style="color:var(--ink)">${q.e}</p>
+    <div class="say"><b>Say it like this</b>${q.s}</div>
+    <button class="btn" id="next">${last?"See results":"Next question"}</button></div>`;
+  $("next").onclick=()=>{if(last)end();else{st.i++;ask()}}; $("next").focus();
+}
+
+function end(){
+  st.i=Math.min(st.i+1,QS.length); stats();
+  const pct=Math.round(st.right/QS.length*100), rank=RANKS.find(r=>pct>=r[0])[1];
+  saveBest(st.score);
+  const counts=LEVELS.map(()=>0); QS.forEach(q=>counts[q.l]++);
+  const weak=st.lvl.map((v,i)=>v/counts[i]).reduce((m,v,i,a)=>v<a[m]?i:m,0);
+  $("card").innerHTML=`
+    <div class="eyebrow"><span>${st.lives?"Round complete":"Out of lives"}</span><span>Best ${best()}</span></div>
+    <div class="rank">${rank}</div>
+    <div class="receipt">
+      ${LEVELS.map((n,i)=>`<div><span>${n}</span><span>${st.lvl[i]}/${counts[i]}</span></div>`).join("")}
+      <div><span>Answered right</span><span>${st.right}/${QS.length}</span></div>
+      <div class="total"><span>Total score</span><span>${st.score}</span></div>
+    </div>
+    <p class="muted">${pct===100?"Clean sheet. You could run the integration call yourself.":`Brush up on <strong>${LEVELS[weak]}</strong> next time.`}</p>
+    <div class="row"><button class="btn" id="again">Play again</button><button class="btn ghost" id="home">Back to start</button></div>`;
+  $("again").onclick=start; $("home").onclick=intro; $("again").focus();
+}
+
+document.addEventListener("keydown",e=>{
+  const k="abcd".indexOf(e.key.toLowerCase());
+  if(k>-1){const b=$("opt"+k);if(b&&!b.disabled)b.click()}
+});
+intro();
+</script>
